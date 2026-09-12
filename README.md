@@ -51,7 +51,7 @@ Signs an unsigned Apple Shortcut and returns the signed file as a download.
 curl --fail --show-error --silent \
   -F 'file=@My Shortcut.shortcut' \
   'https://sign.shortcuty.app/api/v1/sign' \
-  -o 'My Shortcut — Signed.shortcut'
+  -o 'My Shortcut.shortcut'
 ```
 
 **Response (200 OK):**

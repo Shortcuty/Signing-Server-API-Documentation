@@ -49,22 +49,15 @@ Signs an unsigned Apple Shortcut and returns the signed file as a download.
 
 ```sh
 curl --fail --show-error --silent \
-  -F 'file=@My Shortcut.shortcut;type=application/octet-stream' \
+  -F 'file=@My Shortcut.shortcut' \
   'https://sign.shortcuty.app/api/v1/sign' \
   -o 'My Shortcut — Signed.shortcut'
 ```
 
 **Response (200 OK):**
 
-The response body is the signed `.shortcut` file. The file begins with the
+Returns the signed `.shortcut` file as a download. The file begins with the
 `AEA1` marker.
-
-```http
-Content-Type: application/octet-stream
-Content-Disposition: attachment; filename="My Shortcut — Signed.shortcut"
-Cache-Control: no-store
-X-Shortcut-Signed-Format: AEA1
-```
 
 ---
 
@@ -85,7 +78,7 @@ Signs an unsigned Apple Shortcut and returns the signed file as JSON.
 
 ```sh
 curl --fail --show-error --silent \
-  -F 'file=@My Shortcut.shortcut;type=application/octet-stream' \
+  -F 'file=@My Shortcut.shortcut' \
   'https://sign.shortcuty.app/api/v1/sign?response=json'
 ```
 
@@ -97,7 +90,6 @@ curl --fail --show-error --silent \
   "file": {
     "filename": "My Shortcut — Signed.shortcut",
     "content_base64": "<Base64-encoded signed Shortcut>",
-    "content_type": "application/octet-stream",
     "size": 21424,
     "format": "AEA1",
     "signing_mode": "anyone",
@@ -131,7 +123,6 @@ decoded bytes begin with `AEA1` before saving or sharing the file.
 |---|---|---|
 | `filename` | string | Name of the signed Shortcut file |
 | `content_base64` | string | Signed Shortcut encoded as Base64 |
-| `content_type` | string | `application/octet-stream` |
 | `size` | integer | Size of the signed file in bytes |
 | `format` | string | Signed file format, currently `AEA1` |
 | `signing_mode` | string | Signing mode, currently `anyone` |

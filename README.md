@@ -1,8 +1,6 @@
 ```markdown
 # Shortcuty Signer API
 
-Sign an Apple Shortcut with one simple request.
-
 ## API URL
 
 ```text

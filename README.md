@@ -1,95 +1,114 @@
-```markdown
-# Shortcuty Signer API Documentation
+# Shortcuty V1 Signing API Documentation
 
 ## Overview
 
-Welcome to the Shortcuty Signer API documentation.
-
-This API allows developers to upload an Apple Shortcut file and receive a signed version in response.
+Welcome to the Shortcuty V1 Signing API documentation. This API allows
+developers to upload an unsigned Apple Shortcut and receive a signed version.
 
 ### What You Can Do
 
-With the Signer API, you can:
+With the Signing API, you can:
 
-- Upload an unsigned Shortcut file
-- Download the signed Shortcut directly
-- Request the signed Shortcut as JSON for use in an application
+- **Upload an unsigned Shortcut** using a multipart form request
+- **Download the signed Shortcut** directly as a `.shortcut` file
+- **Request the signed Shortcut as JSON** with Base64-encoded content
+- **Verify the signed output** using the `AEA1` file marker
+
+### Signing flow
+
+Shortcuts follow a simple signing flow:
+
+1. **Upload** → Send an unsigned Shortcut in the `file` form field
+2. **Validate** → The service checks that the upload is an Apple workflow
+3. **Sign** → The macOS Shortcut signer creates the signed file
+4. **Return** → The API returns the signed file or a JSON representation
 
 ### Getting Started
 
-**Base URL:** [https://sign.shortcuty.app](https://sign.shortcuty.app)
+**Base URL:** `https://sign.shortcuty.app`
 
----
+No API key is required. All signing requests must use `multipart/form-data` and
+must include a file part named `file`.
 
 ## Sign a Shortcut
 
+### Download Signed Shortcut
+
 **POST** `/api/v1/sign`
 
-Uploads an unsigned `.shortcut` file and returns the signed Shortcut.
-
-### Request
-
-The file must be uploaded using the `file` form field.
+Signs an unsigned Apple Shortcut and returns the signed file as a download.
 
 **Content-Type:** `multipart/form-data`
 
-### cURL
+**Form Data:**
+
+- `file` (required): An unsigned `.shortcut` workflow containing
+  `WFWorkflowActions`
+
+**Request Example:**
 
 ```sh
-curl -fS \
-  -F 'file=@My Shortcut.shortcut' \
-  https://sign.shortcuty.app/api/v1/sign \
+curl --fail --show-error --silent \
+  -F 'file=@My Shortcut.shortcut;type=application/octet-stream' \
+  'https://sign.shortcuty.app/api/v1/sign' \
   -o 'My Shortcut — Signed.shortcut'
 ```
 
-### HTTP
+**Response (200 OK):**
+
+The response body is the signed `.shortcut` file. The file begins with the
+`AEA1` marker.
 
 ```http
-POST /api/v1/sign HTTP/1.1
-Host: sign.shortcuty.app
-Content-Type: multipart/form-data
-
-Content-Disposition: form-data; name="file"; filename="My Shortcut.shortcut"
 Content-Type: application/octet-stream
-
-<file contents>
+Content-Disposition: attachment; filename="My Shortcut — Signed.shortcut"
+Cache-Control: no-store
+X-Shortcut-Signed-Format: AEA1
 ```
-
-### Response
-
-The signed Shortcut is returned directly as a file download.
 
 ---
 
-## Return a JSON Response
+### Return Signed Shortcut as JSON
 
 **POST** `/api/v1/sign?response=json`
 
-Returns the signed Shortcut as JSON instead of a file download.
+Signs an unsigned Apple Shortcut and returns the signed file as JSON.
 
-### cURL
+**Content-Type:** `multipart/form-data`
+
+**Form Data:**
+
+- `file` (required): An unsigned `.shortcut` workflow containing
+  `WFWorkflowActions`
+
+**Request Example:**
 
 ```sh
-curl -sS \
-  -F 'file=@My Shortcut.shortcut' \
+curl --fail --show-error --silent \
+  -F 'file=@My Shortcut.shortcut;type=application/octet-stream' \
   'https://sign.shortcuty.app/api/v1/sign?response=json'
 ```
 
-### Response
+**Response (200 OK):**
 
 ```json
 {
   "success": true,
   "file": {
     "filename": "My Shortcut — Signed.shortcut",
-    "content_base64": "..."
+    "content_base64": "<Base64-encoded signed Shortcut>",
+    "content_type": "application/octet-stream",
+    "size": 21424,
+    "format": "AEA1",
+    "signing_mode": "anyone",
+    "input_sha256": "<sha256 of uploaded bytes>",
+    "signed_sha256": "<sha256 of decoded content>"
   }
 }
 ```
 
-`content_base64` contains the signed Shortcut encoded as Base64.
-
----
+Decode `content_base64` to obtain the signed `.shortcut` file. Confirm that the
+decoded bytes begin with `AEA1` before saving or sharing the file.
 
 ## Response Fields
 
@@ -98,7 +117,13 @@ curl -sS \
 ```json
 {
   "filename": "string",
-  "content_base64": "string"
+  "content_base64": "string",
+  "content_type": "string",
+  "size": "integer",
+  "format": "AEA1",
+  "signing_mode": "anyone",
+  "input_sha256": "string",
+  "signed_sha256": "string"
 }
 ```
 
@@ -106,50 +131,38 @@ curl -sS \
 |---|---|---|
 | `filename` | string | Name of the signed Shortcut file |
 | `content_base64` | string | Signed Shortcut encoded as Base64 |
-
----
+| `content_type` | string | `application/octet-stream` |
+| `size` | integer | Size of the signed file in bytes |
+| `format` | string | Signed file format, currently `AEA1` |
+| `signing_mode` | string | Signing mode, currently `anyone` |
+| `input_sha256` | string | SHA-256 hash of the uploaded file |
+| `signed_sha256` | string | SHA-256 hash of the signed file |
 
 ## Error Responses
 
-### 400 Bad Request
-
-The request is missing a required file.
+Errors use this format:
 
 ```json
 {
   "success": false,
   "error": {
-    "code": "missing_file",
-    "message": "Send an unsigned workflow in the 'file' multipart field or as a raw request body."
+    "code": "error_code",
+    "message": "Human-readable explanation"
   }
 }
 ```
 
-### 422 Unprocessable Entity
+**400 Bad Request:**
 
-The uploaded file cannot be signed.
+- `missing_file` — The multipart request does not contain `file`.
+- `invalid_response_format` — `response` must be `download` or `json`.
 
-```json
-{
-  "success": false,
-  "error": {
-    "code": "invalid_workflow",
-    "message": "The uploaded file could not be signed."
-  }
-}
-```
+**422 Unprocessable Entity:**
 
-### 503 Service Unavailable
+- `invalid_workflow` — The upload is not a valid unsigned Shortcut workflow.
+- `already_signed` — The upload is already signed.
 
-The signing service is temporarily unavailable.
+**503 Service Unavailable:**
 
-```json
-{
-  "success": false,
-  "error": {
-    "code": "signer_unavailable",
-    "message": "The signing service is temporarily unavailable."
-  }
-}
-```
-```
+- `signer_unavailable` — The signing service is temporarily unavailable.
+- `signing_queue_full` — Retry the request after a short delay.

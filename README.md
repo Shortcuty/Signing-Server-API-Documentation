@@ -1,54 +1,83 @@
-Shortcuty Signer API
+```markdown
+# Shortcuty Signer API Documentation
 
-Base URL: https://sign.shortcuty.app
+## Overview
 
-⸻
+Welcome to the Shortcuty Signer API documentation.
 
-Sign a Shortcut
+This API allows developers to upload an Apple Shortcut file and receive a signed version in response.
 
-Upload a .shortcut file using the file form field.
+### What You Can Do
 
-cURL
+With the Signer API, you can:
 
+- Upload an unsigned Shortcut file
+- Download the signed Shortcut directly
+- Request the signed Shortcut as JSON for use in an application
+
+### Getting Started
+
+**Base URL:** [https://sign.shortcuty.app](https://sign.shortcuty.app)
+
+---
+
+## Sign a Shortcut
+
+**POST** `/api/v1/sign`
+
+Uploads an unsigned `.shortcut` file and returns the signed Shortcut.
+
+### Request
+
+The file must be uploaded using the `file` form field.
+
+**Content-Type:** `multipart/form-data`
+
+### cURL
+
+```sh
 curl -fS \
   -F 'file=@My Shortcut.shortcut' \
   https://sign.shortcuty.app/api/v1/sign \
-  -o 'My Shortcut.shortcut'
+  -o 'My Shortcut — Signed.shortcut'
+```
 
-HTTP
+### HTTP
 
+```http
 POST /api/v1/sign HTTP/1.1
 Host: sign.shortcuty.app
 Content-Type: multipart/form-data
+
 Content-Disposition: form-data; name="file"; filename="My Shortcut.shortcut"
 Content-Type: application/octet-stream
+
 <file contents>
+```
 
-The signed Shortcut is returned directly as the response.
+### Response
 
-⸻
+The signed Shortcut is returned directly as a file download.
 
-JSON Response
+---
 
-Add ?response=json to return the signed Shortcut as JSON instead of a file.
+## Return a JSON Response
 
-cURL
+**POST** `/api/v1/sign?response=json`
 
+Returns the signed Shortcut as JSON instead of a file download.
+
+### cURL
+
+```sh
 curl -sS \
   -F 'file=@My Shortcut.shortcut' \
   'https://sign.shortcuty.app/api/v1/sign?response=json'
+```
 
-HTTP
+### Response
 
-POST /api/v1/sign?response=json HTTP/1.1
-Host: sign.shortcuty.app
-Content-Type: multipart/form-data
-Content-Disposition: form-data; name="file"; filename="My Shortcut.shortcut"
-Content-Type: application/octet-stream
-<file contents>
-
-Response
-
+```json
 {
   "success": true,
   "file": {
@@ -56,15 +85,51 @@ Response
     "content_base64": "..."
   }
 }
+```
 
-content_base64 contains the signed .shortcut file encoded as Base64.
+`content_base64` contains the signed Shortcut encoded as Base64.
 
-⸻
+---
 
-Errors
+## Response Fields
 
-Errors are returned as JSON.
+### File Object
 
+```json
+{
+  "filename": "string",
+  "content_base64": "string"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `filename` | string | Name of the signed Shortcut file |
+| `content_base64` | string | Signed Shortcut encoded as Base64 |
+
+---
+
+## Error Responses
+
+### 400 Bad Request
+
+The request is missing a required file.
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "missing_file",
+    "message": "Send an unsigned workflow in the 'file' multipart field or as a raw request body."
+  }
+}
+```
+
+### 422 Unprocessable Entity
+
+The uploaded file cannot be signed.
+
+```json
 {
   "success": false,
   "error": {
@@ -72,6 +137,19 @@ Errors are returned as JSON.
     "message": "The uploaded file could not be signed."
   }
 }
+```
 
-* error.code — machine-readable error code
-* error.message — human-readable error message
+### 503 Service Unavailable
+
+The signing service is temporarily unavailable.
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "signer_unavailable",
+    "message": "The signing service is temporarily unavailable."
+  }
+}
+```
+```

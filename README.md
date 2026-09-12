@@ -12,16 +12,6 @@ With the Signing API, you can:
 - **Upload an unsigned Shortcut** using a multipart form request
 - **Download the signed Shortcut** directly as a `.shortcut` file
 - **Request the signed Shortcut as JSON** with Base64-encoded content
-- **Verify the signed output** using the `AEA1` file marker
-
-### Signing flow
-
-Shortcuts follow a simple signing flow:
-
-1. **Upload** → Send an unsigned Shortcut in the `file` form field
-2. **Validate** → The service checks that the upload is an Apple workflow
-3. **Sign** → The macOS Shortcut signer creates the signed file
-4. **Return** → The API returns the signed file or a JSON representation
 
 ### Getting Started
 
@@ -42,8 +32,7 @@ Signs an unsigned Apple Shortcut and returns the signed file as a download.
 
 **Form Data:**
 
-- `file` (required): An unsigned `.shortcut` workflow containing
-  `WFWorkflowActions`
+- `file` (required): An unsigned `.shortcut` file.
 
 **Request Example:**
 
@@ -56,8 +45,7 @@ curl --fail --show-error --silent \
 
 **Response (200 OK):**
 
-Returns the signed `.shortcut` file as a download. The file begins with the
-`AEA1` marker.
+Returns the signed `.shortcut` file as a download.
 
 ---
 
@@ -71,8 +59,7 @@ Signs an unsigned Apple Shortcut and returns the signed file as JSON.
 
 **Form Data:**
 
-- `file` (required): An unsigned `.shortcut` workflow containing
-  `WFWorkflowActions`
+- `file` (required): An unsigned `.shortcut` file.
 
 **Request Example:**
 
@@ -99,8 +86,7 @@ curl --fail --show-error --silent \
 }
 ```
 
-Decode `content_base64` to obtain the signed `.shortcut` file. Confirm that the
-decoded bytes begin with `AEA1` before saving or sharing the file.
+Decode `content_base64` to obtain the signed `.shortcut` file.
 
 ## Response Fields
 
@@ -113,7 +99,6 @@ decoded bytes begin with `AEA1` before saving or sharing the file.
   "content_type": "string",
   "size": "integer",
   "format": "AEA1",
-  "signing_mode": "anyone",
   "input_sha256": "string",
   "signed_sha256": "string"
 }
@@ -125,7 +110,6 @@ decoded bytes begin with `AEA1` before saving or sharing the file.
 | `content_base64` | string | Signed Shortcut encoded as Base64 |
 | `size` | integer | Size of the signed file in bytes |
 | `format` | string | Signed file format, currently `AEA1` |
-| `signing_mode` | string | Signing mode, currently `anyone` |
 | `input_sha256` | string | SHA-256 hash of the uploaded file |
 | `signed_sha256` | string | SHA-256 hash of the signed file |
 

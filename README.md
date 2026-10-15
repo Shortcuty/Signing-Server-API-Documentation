@@ -1,143 +1,242 @@
 # Shortcuty V1 Signing API Documentation
 
-## Overview
+Upload an unsigned Apple Shortcut and receive a signed `.shortcut` file.
 
-Welcome to the Shortcuty V1 Signing API documentation. This API allows
-developers to upload an unsigned Apple Shortcut and receive a signed version.
+[Quickstart](#quickstart) · [Endpoints](#endpoints) · [Request reference](#request-reference) · [Responses](#response-fields) · [Troubleshooting](#error-responses)
 
-### What You Can Do
-
-With the Signing API, you can:
-
-- **Upload an unsigned Shortcut** using a multipart form request
-- **Download the signed Shortcut** directly as a `.shortcut` file
-- **Request the signed Shortcut as JSON** with Base64-encoded content
-
-### Getting Started
+## Getting Started
 
 **Base URL:** `https://sign.shortcuty.app`
 
-No API key is required. All signing requests must use `multipart/form-data` and
-must include a file part named `file`.
+**Authentication:** None. An API key is not required.
+
+## Quickstart
+
+Send an unsigned workflow as a multipart file and save the result to a different path:
+
+```sh
+curl --fail --show-error --silent \
+  --form 'file=@unsigned.shortcut' \
+  --output 'signed.shortcut' \
+  'https://sign.shortcuty.app/api/v1/sign'
+```
+
+A successful `200` response contains the signed file. `--output` chooses its local name. The server also supplies a suggested name in `Content-Disposition`.
+
+Signing is synchronous: the POST waits for the result, including any queue wait. There is no asynchronous job ID or polling endpoint.
+
+## Endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/v1/sign` | [Sign a Shortcut](#sign-a-shortcut) |
+| GET | `/api/v1` | [Get capabilities](#get-capabilities) |
+| GET | `/healthz` | [Check health](#check-health) |
 
 ## Sign a Shortcut
 
-### Download Signed Shortcut
-
 **POST** `/api/v1/sign`
 
-Signs an unsigned Apple Shortcut and returns the signed file as a download.
+**Body:** An unsigned workflow, using one of the [upload formats](#upload-formats).
 
-**Content-Type:** `multipart/form-data`
+**Options:** See [Request options](#request-options).
 
-**Form Data:**
+**Response:** `200`, either a binary download or JSON, selected by the `response` query parameter.
 
-- `file` (required): An unsigned `.shortcut` file.
+### Download Signed Shortcut
 
-**Request Example:**
+The default is `response=download`. Use the [quickstart](#quickstart) for a multipart upload, or send raw bytes:
 
 ```sh
 curl --fail --show-error --silent \
-  -F 'file=@My Shortcut.shortcut' \
-  'https://sign.shortcuty.app/api/v1/sign' \
-  -o 'My Shortcut.shortcut'
+  --header 'Content-Type: application/octet-stream' \
+  --header 'X-Filename: Example.shortcut' \
+  --data-binary '@unsigned.shortcut' \
+  --output 'signed.shortcut' \
+  'https://sign.shortcuty.app/api/v1/sign'
 ```
-
-**Response (200 OK):**
-
-Returns the signed `.shortcut` file as a download.
-
----
 
 ### Return Signed Shortcut as JSON
 
-**POST** `/api/v1/sign?response=json`
-
-Signs an unsigned Apple Shortcut and returns the signed file as JSON.
-
-**Content-Type:** `multipart/form-data`
-
-**Form Data:**
-
-- `file` (required): An unsigned `.shortcut` file.
-
-**Request Example:**
+Add `?response=json` to the same endpoint:
 
 ```sh
 curl --fail --show-error --silent \
-  -F 'file=@My Shortcut.shortcut' \
+  --form 'file=@unsigned.shortcut' \
   'https://sign.shortcuty.app/api/v1/sign?response=json'
 ```
 
-**Response (200 OK):**
+This selects the **response** format. The upload is still multipart or raw workflow bytes, rather than a JSON request body.
 
 ```json
 {
   "success": true,
   "file": {
-    "filename": "My Shortcut — Signed.shortcut",
-    "content_base64": "<Base64-encoded signed Shortcut>",
+    "filename": "Example — Signed.shortcut",
+    "content_base64": "<base64-encoded signed bytes>",
+    "content_type": "application/octet-stream",
     "size": 21424,
     "format": "AEA1",
     "signing_mode": "anyone",
-    "input_sha256": "<sha256 of uploaded bytes>",
-    "signed_sha256": "<sha256 of decoded content>"
+    "input_sha256": "<SHA-256 of uploaded bytes>",
+    "signed_sha256": "<SHA-256 of decoded signed bytes>"
   }
 }
 ```
 
-Decode `content_base64` to obtain the signed `.shortcut` file.
+Decode `file.content_base64` to obtain the signed file. The values above illustrate the response structure.
+
+### Apple Shortcuts setup
+
+In **Get Contents of URL**:
+
+1. Set **URL → `https://sign.shortcuty.app/api/v1/sign`**.
+2. Set **Method → POST** and **Request Body → Form**.
+3. Add a **File** field named `file`, using the unsigned shortcut file as its value.
+4. Save the returned file with **Save File**.
+
+See [Request reference](#request-reference) for input requirements and options.
+
+## Request reference
+
+### Upload formats
+
+| Format | Content-Type | Required input |
+|---|---|---|
+| Multipart | `multipart/form-data` | A file part named `file` |
+| Raw bytes | `application/octet-stream` | The workflow bytes as the entire request body |
+
+For multipart uploads, let the client generate the boundary; do not manually set the multipart `Content-Type` header. The input must be an unsigned XML or binary Apple property list with a `WFWorkflowActions` array.
+
+### Request options
+
+| Name | Location | Default | Meaning |
+|---|---|---|---|
+| `response` | Query | `download` | `download` for binary output, or `json` for Base64 and metadata |
+| `mode` | Multipart text field or query | `anyone` | Only `anyone` is supported. A nonempty Form value takes precedence over the query. |
+| `filename` | Multipart text field | `workflow.shortcut` | Fallback name only when the uploaded file has no filename |
+| `X-Filename` | Header for raw uploads | `workflow.shortcut` | Input filename used to construct the suggested download name |
+
+A normal multipart upload uses the filename attached to the `file` part. To set it explicitly with curl, use `--form 'file=@unsigned.shortcut;filename=Example.shortcut'`.
+
+### Download filenames
+
+The suggested output name is `<name> — Signed.shortcut`; for example, `Example.shortcut` becomes `Example — Signed.shortcut`.
+
+The service removes path components, slashes, and nonprintable characters, adds the `.shortcut` extension when needed, and normalizes common trailing signed/unsigned suffixes. Use `Content-Disposition` for binary responses or `file.filename` for JSON. For Unicode names, HTTP clients should support the `filename*` parameter.
 
 ## Response Fields
 
+Both successful formats set `Cache-Control: no-store`. The signed bytes begin with the `AEA1` container marker.
+
+### Binary download
+
+| Header | Value |
+|---|---|
+| `Content-Type` | `application/octet-stream` |
+| `Content-Disposition` | Attachment with the suggested download filename |
+| `X-Shortcut-Signed-Format` | `AEA1` |
+| `X-Shortcut-Signing-Mode` | `anyone` |
+| `X-Shortcut-Input-SHA256` | SHA-256 of the uploaded bytes |
+| `X-Shortcut-Signed-SHA256` | SHA-256 of the returned signed bytes |
+
 ### File Object
+
+JSON success responses contain `success: true` and this `file` object:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `filename` | String | Suggested download name |
+| `content_base64` | String | Base64-encoded signed bytes |
+| `content_type` | String | `application/octet-stream` |
+| `size` | Integer | Signed file size in bytes |
+| `format` | String | `AEA1` |
+| `signing_mode` | String | `anyone` |
+| `input_sha256` | String | SHA-256 of the uploaded bytes |
+| `signed_sha256` | String | SHA-256 of the decoded signed bytes |
+
+## Get capabilities
+
+**GET** `/api/v1`
+
+**Response:** `200`, describing the endpoint, signing mode, and configured queue capacity.
 
 ```json
 {
-  "filename": "string",
-  "content_base64": "string",
-  "content_type": "string",
-  "size": "integer",
-  "format": "AEA1",
-  "input_sha256": "string",
-  "signed_sha256": "string"
+  "service": "shortcuty-signing-api",
+  "version": "1",
+  "sign_endpoint": "/api/v1/sign",
+  "methods": ["multipart/form-data"],
+  "file_field": "file",
+  "signing_modes": ["anyone"],
+  "default_signing_mode": "anyone",
+  "max_concurrent_signings": 2,
+  "max_queued_signings": 32,
+  "returns": "AEA1 signed .shortcut download"
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `filename` | string | Name of the signed Shortcut file |
-| `content_base64` | string | Signed Shortcut encoded as Base64 |
-| `size` | integer | Size of the signed file in bytes |
-| `format` | string | Signed file format, currently `AEA1` |
-| `input_sha256` | string | SHA-256 hash of the uploaded file |
-| `signed_sha256` | string | SHA-256 hash of the signed file |
+Capacity values are deployment settings; read the endpoint for their current values.
+
+## Check health
+
+**GET** `/healthz`
+
+**Response:** `200` when the web service is responding.
+
+```json
+{"status":"ok","service":"shortcuty-signing-api"}
+```
+
+This is a web-service health check, not a signing job or a guarantee that Apple signing is available.
+
+## Limits and timing
+
+| Topic | Behavior |
+|---|---|
+| Upload size | No fixed upload maximum is advertised by the API. Hosting or proxy limits can still reject a request; do not assume unlimited uploads. |
+| Concurrency and queue | Configured capacity is published by [Get capabilities](#get-capabilities). A full queue returns `503`. |
+| Rate limiting | Excess requests can return `429`. Follow `Retry-After` when present. |
+| Timeouts | Allow time for upload, queueing, and signing. The signing command has a separate timeout; exceeding it returns `504`. |
 
 ## Error Responses
 
-Errors use this format:
+Application signing errors use this JSON shape:
 
 ```json
 {
   "success": false,
   "error": {
-    "code": "error_code",
-    "message": "Human-readable explanation"
+    "code": "invalid_workflow",
+    "message": "The uploaded file is not a valid Apple property-list workflow."
   }
 }
 ```
 
-**400 Bad Request:**
+Check the HTTP status and `Content-Type` before decoding a response. Rate-limit and proxy errors may have a different body format.
 
-- `missing_file` — The multipart request does not contain `file`.
-- `invalid_response_format` — `response` must be `download` or `json`.
+| Status | Code | Meaning / action |
+|---|---|---|
+| `400` | `missing_file` | No workflow bytes received. Check the upload field or raw body. |
+| `400` | `invalid_response_format` | Use `download` or `json`. |
+| `400` | `invalid_signing_mode` | Use the supported mode from [Request options](#request-options). |
+| `422` | `invalid_workflow` | The content is not a valid unsigned workflow. Correct the input before retrying. |
+| `422` | `already_signed` | The input already starts with `AEA1`; upload an unsigned workflow. |
+| `429` | Varies | Rate limit reached. Wait before another request. |
+| `500` | `internal_error` | Unexpected server error. |
+| `502` | `signing_failed` | Apple's signer failed or produced no signed file. |
+| `502` | `invalid_signed_output` | The signer produced an unexpected output format. |
+| `503` | `feature_unavailable` | New signing jobs are temporarily disabled. |
+| `503` | `signer_unavailable` | The signing command cannot be started. |
+| `503` | `signing_queue_full` | Queue admission failed; the response includes `Retry-After: 1`. |
+| `504` | `signer_timeout` | The signing command exceeded its timeout. |
 
-**422 Unprocessable Entity:**
+### Troubleshooting
 
-- `invalid_workflow` — The upload is not a valid unsigned Shortcut workflow.
-- `already_signed` — The upload is already signed.
+| Problem | Check |
+|---|---|
+| A JSON body was rejected | Use one of the [upload formats](#upload-formats). |
+| The download has an unexpected local name | `--output` controls the local path; the server's suggestion is in the [filename metadata](#download-filenames). |
+| The connection timed out | Signing may have started. Avoid an immediate retry loop; allow time for queueing and retry transient failures with a bounded delay. |
 
-**503 Service Unavailable:**
-
-- `signer_unavailable` — The signing service is temporarily unavailable.
-- `signing_queue_full` — Retry the request after a short delay.
+Do not automatically retry invalid-input `400` or `422` responses. For transient failures, respect `Retry-After` when supplied and keep retries bounded. Never overwrite an unsigned source file with an error response or partial download.

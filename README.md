@@ -8,7 +8,7 @@ Upload an unsigned Apple Shortcut and receive a signed `.shortcut` file.
 
 **Base URL:** `https://sign.shortcuty.app`
 
-**Authentication:** None. An API key is not required.
+**Authentication:** None.
 
 ## Quickstart
 
@@ -20,10 +20,6 @@ curl --fail --show-error --silent \
   --output 'signed.shortcut' \
   'https://sign.shortcuty.app/api/v1/sign'
 ```
-
-A successful `200` response contains the signed file. `--output` chooses its local name. The server also supplies a suggested name in `Content-Disposition`.
-
-Signing is synchronous: the POST waits for the result, including any queue wait. There is no asynchronous job ID or polling endpoint.
 
 ## Endpoints
 
@@ -92,8 +88,6 @@ In **Get Contents of URL**:
 2. Set **Method → POST** and **Request Body → Form**.
 3. Add a **File** field named `file`, using the unsigned shortcut file as its value.
 4. Save the returned file with **Save File**.
-
-See [Request reference](#request-reference) for input requirements and options.
 
 ## Request reference
 
@@ -186,15 +180,13 @@ Capacity values are deployment settings; read the endpoint for their current val
 {"status":"ok","service":"shortcuty-signing-api"}
 ```
 
-This is a web-service health check, not a signing job or a guarantee that Apple signing is available.
-
 ## Limits and timing
 
 | Topic | Behavior |
 |---|---|
-| Upload size | No fixed upload maximum is advertised by the API. Hosting or proxy limits can still reject a request; do not assume unlimited uploads. |
+| Upload size | Upload limits depend on hosting and proxy configuration. |
 | Concurrency and queue | Configured capacity is published by [Get capabilities](#get-capabilities). A full queue returns `503`. |
-| Rate limiting | Excess requests can return `429`. Follow `Retry-After` when present. |
+| Rate limiting | Excess requests can return `429`. |
 | Timeouts | Allow time for upload, queueing, and signing. The signing command has a separate timeout; exceeding it returns `504`. |
 
 ## Error Responses
@@ -233,7 +225,6 @@ Check the HTTP status and `Content-Type` before decoding a response. Rate-limit 
 
 | Problem | Check |
 |---|---|
-| A JSON body was rejected | Use one of the [upload formats](#upload-formats). |
 | The download has an unexpected local name | `--output` controls the local path; the server's suggestion is in the [filename metadata](#download-filenames). |
 | The connection timed out | Signing may have started; see [Limits and timing](#limits-and-timing). |
 

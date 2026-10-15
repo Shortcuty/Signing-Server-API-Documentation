@@ -151,7 +151,7 @@ JSON success responses contain `success: true` and this `file` object:
 
 **GET** `/api/v1`
 
-**Response:** `200`, describing the endpoint, signing mode, and configured queue capacity.
+**Response:** `200`. Selected fields:
 
 ```json
 {
@@ -162,13 +162,9 @@ JSON success responses contain `success: true` and this `file` object:
   "file_field": "file",
   "signing_modes": ["anyone"],
   "default_signing_mode": "anyone",
-  "max_concurrent_signings": 2,
-  "max_queued_signings": 32,
   "returns": "AEA1 signed .shortcut download"
 }
 ```
-
-Capacity values are deployment settings; read the endpoint for their current values.
 
 ## Check health
 
@@ -185,7 +181,6 @@ Capacity values are deployment settings; read the endpoint for their current val
 | Topic | Behavior |
 |---|---|
 | Upload size | Upload limits depend on hosting and proxy configuration. |
-| Concurrency and queue | Configured capacity is published by [Get capabilities](#get-capabilities). A full queue returns `503`. |
 | Rate limiting | Excess requests can return `429`. |
 | Timeouts | Allow time for upload, queueing, and signing. The signing command has a separate timeout; exceeding it returns `504`. |
 

@@ -66,8 +66,6 @@ curl --fail --show-error --silent \
   'https://sign.shortcuty.app/api/v1/sign?response=json'
 ```
 
-This selects the **response** format. The upload is still multipart or raw workflow bytes, rather than a JSON request body.
-
 ```json
 {
   "success": true,
@@ -84,7 +82,7 @@ This selects the **response** format. The upload is still multipart or raw workf
 }
 ```
 
-Decode `file.content_base64` to obtain the signed file. The values above illustrate the response structure.
+Decode `file.content_base64` to obtain the signed file.
 
 ### Apple Shortcuts setup
 
@@ -106,7 +104,7 @@ See [Request reference](#request-reference) for input requirements and options.
 | Multipart | `multipart/form-data` | A file part named `file` |
 | Raw bytes | `application/octet-stream` | The workflow bytes as the entire request body |
 
-For multipart uploads, let the client generate the boundary; do not manually set the multipart `Content-Type` header. The input must be an unsigned XML or binary Apple property list with a `WFWorkflowActions` array.
+Let the client generate the multipart `Content-Type` header and boundary. The input must be an unsigned XML or binary Apple property list with a `WFWorkflowActions` array.
 
 ### Request options
 
@@ -220,9 +218,9 @@ Check the HTTP status and `Content-Type` before decoding a response. Rate-limit 
 | `400` | `missing_file` | No workflow bytes received. Check the upload field or raw body. |
 | `400` | `invalid_response_format` | Use `download` or `json`. |
 | `400` | `invalid_signing_mode` | Use the supported mode from [Request options](#request-options). |
-| `422` | `invalid_workflow` | The content is not a valid unsigned workflow. Correct the input before retrying. |
+| `422` | `invalid_workflow` | The content is not a valid unsigned workflow. |
 | `422` | `already_signed` | The input already starts with `AEA1`; upload an unsigned workflow. |
-| `429` | Varies | Rate limit reached. Wait before another request. |
+| `429` | Varies | Rate limit reached. |
 | `500` | `internal_error` | Unexpected server error. |
 | `502` | `signing_failed` | Apple's signer failed or produced no signed file. |
 | `502` | `invalid_signed_output` | The signer produced an unexpected output format. |
@@ -237,6 +235,6 @@ Check the HTTP status and `Content-Type` before decoding a response. Rate-limit 
 |---|---|
 | A JSON body was rejected | Use one of the [upload formats](#upload-formats). |
 | The download has an unexpected local name | `--output` controls the local path; the server's suggestion is in the [filename metadata](#download-filenames). |
-| The connection timed out | Signing may have started. Avoid an immediate retry loop; allow time for queueing and retry transient failures with a bounded delay. |
+| The connection timed out | Signing may have started; see [Limits and timing](#limits-and-timing). |
 
-Do not automatically retry invalid-input `400` or `422` responses. For transient failures, respect `Retry-After` when supplied and keep retries bounded. Never overwrite an unsigned source file with an error response or partial download.
+Correct invalid-input `400` or `422` responses before retrying. For transient failures, respect `Retry-After` when supplied and keep retries bounded.
